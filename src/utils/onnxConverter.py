@@ -84,36 +84,6 @@ def convertToFloat16(model):
     return model
 
 
-def convertAndSaveModel(model, modelPath, precision, opset):
-    if precision == "fp16":
-        model = convertToFloat16(model)
-    newModelPath = modelPath.replace(".onnx", f"_{precision}_op{opset}.onnx")
-    onnx.save(model, newModelPath)
-    savedModel = onnx.load(newModelPath)
-    print(f"Opset version for {precision}: {savedModel.opset_import[0].version}")
-    print(f"IR version for {precision}: {savedModel.ir_version}")
-    return newModelPath
-
-
-def slimModel(modelPath, slimPath):
-    if isOnnxSlim:
-        try:
-            onnxslim.slim(modelPath, slimPath)
-            if os.path.exists(slimPath):
-                os.remove(modelPath)
-                print(f"(*) Successfully slimmed: {slimPath}")
-                return slimPath
-            print(f"(!) Slimming did not produce output, keeping original: {modelPath}")
-            return modelPath
-        except Exception as e:
-            print(f"(!) Slimming failed with error: {e}")
-            print(f"  Keeping original: {modelPath}")
-            return modelPath
-    else:
-        print(f"onnxslim not found. Skipping {modelPath} slimming")
-        return modelPath
-
-
 def pthToOnnx(
     pthPath,
     outputPath=None,
@@ -259,21 +229,7 @@ if __name__ == "__main__":
             print(f"Warning: Model file not found: {modelPath}")
             continue
 
-        if modelPath.endswith(".onnx"):
-            print(f"Processing ONNX model: {modelPath}")
-            model = onnx.load(modelPath)
-
-            newModelPathFp16 = convertAndSaveModel(model, modelPath, "fp16", OPSET)
-            slimPathFp16 = newModelPathFp16.replace(".onnx", "_slim.onnx")
-            print(f"{newModelPathFp16} -> {slimPathFp16}")
-            slimModel(newModelPathFp16, slimPathFp16)
-
-            newModelPathFp32 = convertAndSaveModel(model, modelPath, "fp32", OPSET)
-            slimPathFp32 = newModelPathFp32.replace(".onnx", "_slim.onnx")
-            print(f"{newModelPathFp32} -> {slimPathFp32}")
-            slimModel(newModelPathFp32, slimPathFp32)
-
-        elif modelPath.endswith((".pth", ".pt", ".ckpt", ".safetensors")):
+        if modelPath.endswith((".pth", ".pt", ".ckpt", ".safetensors")):
             try:
                 pthToOnnx(modelPath, precision="fp32", opset=OPSET, slim=isOnnxSlim)
                 pthToOnnx(modelPath, precision="fp16", opset=OPSET, slim=isOnnxSlim)
